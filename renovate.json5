@@ -1,0 +1,274 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':ignoreUnstable',
+    ':separateMajorReleases',
+    ':maintainLockFilesWeekly',
+    'docker:enableMajor',
+    ':semanticCommits',
+    ':enableVulnerabilityAlertsWithLabel',
+  ],
+  
+  // Global settings
+  assignees: ['gaodes'],
+  assignAutomerge: false,
+  enabledManagers: ['docker-compose', 'dockerfile', 'github-actions', 'regex'],
+  customManagers: [
+    {
+      customType: "regex",
+      fileMatch: [".*\\.xml$"],
+      matchStrings: [
+        "\\<Repository\\>(?<depName>[^:]+):(?<currentValue>[^<]+)\\<\\/Repository\\>"
+      ],
+      datasourceTemplate: "docker",
+      versioningTemplate: "docker"
+    }
+  ],
+  timezone: 'Europe/Bucharest',
+  dependencyDashboard: true,
+  automergeType: 'pr',
+  automergeStrategy: 'merge-commit',
+  rebaseWhen: 'conflicted',
+  rangeStrategy: 'pin',
+  semanticCommitType: 'chore',
+  semanticCommitScope: 'deps',
+  separateMajorMinor: true,
+  separateMultipleMajor: true,
+  prConcurrentLimit: 0,
+  prHourlyLimit: 25,
+  commitBody: "For more details, see {{sourceUrl}}", // Add source URL to commit body
+  prBodyColumns: [
+    "Package",
+    "Type",
+    "Update",
+    "Change",
+    "References"
+  ],
+  ignorePaths: [
+    '_archive/**',
+  ],
+  packageRules: [
+    // Github Actions
+    // Base
+    {
+      matchManagers: ['github-actions'],
+      labels: ['github-actions'],
+      commitMessagePrefix: '⚙️',
+      commitMessageTopic: '{{depName}}',
+      prBodyNotes: ["Action source: {{sourceUrl}}"],
+      schedule: ['at any time'],
+      automerge: true,
+      // automergeSchedule: [
+      //   'after 5:00am before 11:00am',
+      // ],
+      automergeSchedule: ['at any time'],
+      ignoreTests: true,
+      platformAutomerge: true,
+      recreateWhen: 'always',
+      prCreation: 'immediate'
+    },
+    // Major updates
+    {
+      matchManagers: ['github-actions'],
+      matchUpdateTypes: ['major'],
+      addLabels: ['major', 'breaking-change'],
+      commitMessagePrefix: '💥',
+      automerge: false,
+      dependencyDashboardApproval: true,
+    },
+    // Minor updates
+    {
+      matchManagers: ['github-actions'],
+      matchUpdateTypes: ['minor'],
+      addLabels: ['github-actions', 'minor'],
+    },
+    // Patch updates
+    {
+      matchManagers: ['github-actions'],
+      matchUpdateTypes: ['patch'],
+      addLabels: ['github-actions', 'patch'],
+    },
+    // Docker compose rules
+    // Base
+    {
+      matchManagers: ['docker-compose'],
+      labels: ['docker'],
+      commitMessagePrefix: '📦',
+      commitMessageTopic: '{{depName}}',
+      commitMessageExtra: '{{#if isPinDigest}}(digest){{else}}{{#if isPatch}}(patch){{else}}{{#if isMinor}}(minor){{else}}(major){{/if}}{{/if}}{{/if}} to {{#if isPinDigest}}{{{newDigestShort}}}{{else}}{{#if isMajor}}v{{{newMajor}}}{{else}}{{{newVersion}}}{{/if}}{{/if}}',
+      prBodyNotes: [
+        "Container source: {{sourceUrl}}",
+        "{{#if isMajor}}:warning: MAJOR MAJOR MAJOR :warning:{{/if}}"
+      ],
+      schedule: ['at any time'],
+      automerge: true,
+      automergeSchedule: ['at any time'],
+      // automergeSchedule: [
+      //   'after 5:00am before 11:00am',
+      // ],
+      ignoreTests: true,
+      platformAutomerge: true,
+      recreateWhen: 'always',
+      prCreation: 'immediate'
+    },
+    // Major
+    { matchManagers: ['docker-compose'],
+      matchUpdateTypes: ['major'],
+      addLabels: ['major', 'breaking-change'],
+      automerge: false,
+      reviewers: ['gaodes'],
+      dependencyDashboardApproval: true,
+      prPriority: -1,
+      commitMessagePrefix: '💥',
+    },
+    // Minor
+    { matchManagers: ['docker-compose'],
+      matchUpdateTypes: ['minor'],
+      addLabels: ['minor'],
+    },
+    // Patch
+    { matchManagers: ['docker-compose'],
+      matchUpdateTypes: ['patch'],
+      addLabels: ['patch'],
+    },
+    // Digest
+    { matchManagers: ['docker-compose'],
+      matchUpdateTypes: ['pinDigest'],
+      addLabels: ['digest'],
+    },
+    // Add XML Docker rules
+    {
+      matchManagers: ["regex"],
+      matchFileNames: ["**/*.xml"],
+      labels: ["docker", "xml"],
+      commitMessagePrefix: "📦",
+      commitMessageTopic: "{{depName}}",
+      commitMessageExtra: "to {{#if isMajor}}v{{{newMajor}}}{{else}}{{{newVersion}}}{{/if}}"
+    },
+    // CUSTOM
+    // "latest" tag
+    {
+      matchPackageNames: ['searxng/searxng', "gaodes/pgbackweb", "ghcr.io/hotio/plex",],
+      allowedVersions: 'latest',
+      commitMessageExtra: '(digest) to {{{newDigestShort}}}',
+      pinDigests: true,
+      addLabels: ['digest'],
+    },
+    // 'release-' tag
+    {
+      matchPackageNames: ['jackett', 'jellyfin', 'qbitmanage', 'qbittorrent', 'radarr', 'sonarr', 'tautulli', 'sabnzbd', 'bazarr'],
+      versioning: "regex:^release-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+    },
+    // bind9 
+    {
+      matchPackageNames: ['ubuntu/bind9'],
+      allowedVersions: 'edge',
+      commitMessageExtra: '(digest) to {{{newDigestShort}}}',
+      pinDigests: true,
+      addLabels: ['digest'],
+      "sourceUrl": "https://hub.docker.com/r/ubuntu/bind9"
+    },
+    // Chrome
+    {
+      matchPackageNames: ['zenika/alpine-chrome'],
+      versioning: "regex:^(?<major>\\d)(?<minor>\\d)(?<patch>\\d)$",
+      "sourceUrl": "https://github.com/zenika/alpine-chrome"
+    },
+    // Calibre-Web-Automated
+    {
+      matchPackageNames: ['calibre-web-automated'],
+      versioning: "regex:^V(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "sourceUrl": "https://github.com/crocodilestick/Calibre-Web-Automated"
+    },
+    // Jenkins
+    {
+      matchPackageNames: ['jenkins/jenkins'],
+      versioning: "regex:^(?<major>\\d)\\.(?<minor>\\d)(?<patch>\\d{2})$",
+    },
+    // Kestra
+    {
+      matchPackageNames: ['kestra/kestra'],
+      "sourceUrl": "https://github.com/kestra-io/kestra"
+    },
+    // Kopia
+    {
+      matchPackageNames: ['kopia/kopia'],
+      versioning: "regex:^(?<major>\\d{1,2})\\.(?<minor>\\d{1,2})\\.(?<patch>\\d{1,2})$",
+      "sourceUrl": "https://github.com/kopia/kopia"
+    },
+    // Lldap
+    {
+      matchPackageNames: ['lldap/lldap'],
+      "sourceUrl": "https://github.com/lldap/lldap"
+    },
+    // Redis
+    {
+      "matchPackageNames": ["redis"],
+      "sourceUrl": "https://github.com/redis/redis"
+    },
+    // Gatus
+    {
+      "matchPackageNames": ["twinproduction/gatus"],
+      "sourceUrl": "https://github.com/TwiN/gatus"
+    },
+    // MongoDB
+    {
+      "matchPackageNames": ["mongo"],
+      "sourceUrl": "https://github.com/mongodb/mongo"
+    },
+    // MariaDB
+    {
+      "matchPackageNames": ["mariadb"],
+      "sourceUrl": "https://github.com/MariaDB/server"
+    },
+    // MySpeed
+    {
+      "matchPackageNames": ["germannewsmaker/myspeed"],
+      "sourceUrl": "https://github.com/gnmyt/myspeed"
+    },
+    // PGAdmin
+    {
+      "matchPackageNames": ["dpage/pgadmin4"],
+      "sourceUrl": "https://github.com/pgadmin-org/pgadmin4"
+    },
+    // Postgres
+    {
+      "matchPackageNames": ["postgres"],
+      "sourceUrl": "https://github.com/postgres/postgres"
+    },
+    // Searxng
+    {
+      "matchPackageNames": ["searxng/searxng"],
+      "sourceUrl": "https://github.com/searxng/searxng"
+    },
+    // // Traefik
+    // {
+    //   "matchPackageNames": ["traefik"],
+    //   "sourceUrl": " https://github.com/traefik/traefik"
+    // },
+    // Traefik-kop
+    {
+      "matchPackageNames": ["traefik-kop"],
+      "sourceUrl": " https://github.com/jittering/traefik-kop"
+    },
+    // Uptime-Kuma
+    {
+      matchPackageNames: ['louislam/uptime-kuma'],
+      allowedVersions: 'beta',
+      pinDigests: true,
+      addLabels: ['digest'],
+      "sourceUrl": "https://github.com/louislam/uptime-kuma"
+      },
+    // WUD
+    {
+      "matchPackageNames": ["getwud/wud"],
+      "sourceUrl": " https://github.com/getwud/wud"
+    },
+  ],
+  
+  vulnerabilityAlerts: {
+      "labels": ['security'],
+      "automerge": true,
+    },
+}
